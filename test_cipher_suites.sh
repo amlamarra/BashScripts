@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Display all available cipher suites from a hosted web server
 
+read -p "Enter the IP or domain name: " domain
 # OpenSSL requires the port number.
-SERVER=google.com:443
+SERVER="$domain":443
 
 ciphers=$(openssl ciphers 'ALL:eNULL' | sed -e 's/:/ /g')
 
