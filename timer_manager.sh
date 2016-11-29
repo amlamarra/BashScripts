@@ -6,8 +6,8 @@ set -e
 #command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
 
 # Output each argument
-echo "Arguments ($#):"
-for i in $(seq 0 $#); do echo $i = ${!i}; done
+#echo "Arguments ($#):"
+#for i in $(seq 0 $#); do echo $i = ${!i}; done
 
 function disp_usage {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
@@ -15,27 +15,25 @@ function disp_usage {
 }
 
 # If no options are supplied, display usage & exit
-if [[ $# == 0 ]]; then
-    disp_usage
-    exit 1
-fi
+if [[ $# == 0 ]]; then disp_usage; exit 1; fi
 
 # Make sure the user isn't using too many options
-if [[ ( "$1" != "-u" || "$1" != "--user" ) && $# > 2 ]]; then
-    echo "Only use one option at a time"
-    disp_usage
-    exit 1
-elif [[ ( "$1" == "-u" || "$1" == "--user" ) && $# > 3 ]]; then
-    echo "Only use one option at a time (including the user option)"
-    disp_usage
-    exit 1
-fi
+#if [[ ( "$1" != "-u" && "$1" != "--user" ) && $# > 2 ]]; then
+#    echo "Only use one option at a time"
+#    disp_usage
+#    exit 1
+#elif [[ ( "$1" == "-u" || "$1" == "--user" ) && $# > 3 ]]; then
+#    echo "Only use one option at a time (including the user option)"
+#    disp_usage
+#    exit 1
+#fi
 
 USER_PATH="$HOME/.config/systemd/user/"
 
 function disp_help {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
     echo "List, create, modify, & delete Systemd Timers"
+    echo "Only use one option at a time (not including -u)"
     echo
     echo "  -u, --user          Deal only with user timers (not run as root)"
     echo "  -h, --help          Display this help dialog"
@@ -84,23 +82,21 @@ function new_timer {
     if [[ $existing == 'y' ]]; then
         read -p "Name of the existing service (leave off the .service extension): " service
         echo
-        if [[ -n "$user" ]]; then 
-            while [ ! -e ""$path""$service".service" ]; do
-                echo "That service file does not exist in the user service path ("$path")"
-                read -p "Enter the name again (leave off the .service extension): " service
-            done
-            service_path="$path"
-            echo
-        else
+        service=""$service".service"
+        if [[ ! -e ""$path""$service"" ]]; then
+            echo "That service file does not exist in the user service path ("$path")"
+            exit 1
+        fi
+        if [[ ! -n "$user" ]]; then
             read -p "Directory of the service file? ($path) " service_path
             if [[ "$service_path" == '' ]]; then service_path=$path; fi
-            while [ ! -e ""$service_path""$service".service" ]; do
-                echo "The service file does not exist in that directory ("$service_path")"
-                read -p "Enter the directory again: " service_path
-            done
-            echo
+        else
+            service_path="$path"
         fi
-        service=""$service".service"
+        if [[ ! -e ""$service_path""$service"" ]]; then
+            echo "The service file does not exist ("$service_path""$service")"
+            exit 1
+        fi
         service_file=""$service_path""$service""
     # If no, then just set the appropriate variables
     elif [[ $existing == 'n' ]]; then
