@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 # An easy way to manage all of your systemd timers
+
 set -e
 
 # Make sure systemd is installed
-#command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
-
-# Output each argument
-#echo "Arguments ($#):"
-#for i in $(seq 0 $#); do echo $i = ${!i}; done
+command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
 
 function disp_usage {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
@@ -16,17 +13,6 @@ function disp_usage {
 
 # If no options are supplied, display usage & exit
 if [[ $# == 0 ]]; then disp_usage; exit 1; fi
-
-# Make sure the user isn't using too many options
-#if [[ ( "$1" != "-u" && "$1" != "--user" ) && $# > 2 ]]; then
-#    echo "Only use one option at a time"
-#    disp_usage
-#    exit 1
-#elif [[ ( "$1" == "-u" || "$1" == "--user" ) && $# > 3 ]]; then
-#    echo "Only use one option at a time (including the user option)"
-#    disp_usage
-#    exit 1
-#fi
 
 USER_PATH="$HOME/.config/systemd/user/"
 
@@ -114,17 +100,8 @@ function new_timer {
         echo "Unit="$service_file"" >> $timer_file
     fi
     
-    # http://man7.org/linux/man-pages/man5/systemd.timer.5.html
-    # OPTIONS:
-    # OnActiveSec=, OnBootSec=, OnStartupSec=, OnUnitActiveSec=, OnUnitInactiveSec=
-    # OnCalendar=
-    # AccuracySec=
-    # RandomizedDelaySec=
-    # Unit=
+    # More to do here
     
-    # filename.timer
-    # [Install]
-    # WantedBy=timers.target
     exit 0
 }
 
@@ -144,12 +121,6 @@ function enable_timer {
     else
         name=""$1".timer"
     fi
-    
-    # Check for the timer's existence
-    #while [ ! -e "$path"$name".timer" ]; do
-    #    echo "That timer file does not exist in the default path ($path)"
-    #    read -p "Enter the name of the timer again: " name
-    #done
     
     systemctl $user enable "$name"
     exit 0
@@ -171,12 +142,6 @@ function disable_timer {
     else
         name=""$1".timer"
     fi
-    
-    # Check for the timer's existence
-    #while [ ! -e "$path"$name".timer" ]; do
-    #    echo "That timer file does not exist in the default path ($path)"
-    #    read -p "Enter the name of the timer again: " name
-    #done
     
     systemctl $user disable "$name"
     exit 0
