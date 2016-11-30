@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # An easy way to manage all of your systemd timers
-
 set -e
 
 # Make sure systemd is installed
@@ -10,11 +9,6 @@ function disp_usage {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
     echo "For more help: $0 -h"
 }
-
-# If no options are supplied, display usage & exit
-if [[ $# == 0 ]]; then disp_usage; exit 1; fi
-
-USER_PATH="$HOME/.config/systemd/user/"
 
 function disp_help {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
@@ -100,8 +94,6 @@ function new_timer {
         echo "Unit="$service_file"" >> $timer_file
     fi
     
-    # More to do here
-    
     exit 0
 }
 
@@ -122,7 +114,55 @@ function enable_timer {
         name=""$1".timer"
     fi
     
+    echo
     systemctl $user enable "$name"
+    echo ""$name" has been enabled"
+    exit 0
+}
+
+function start_timer {
+    # Set the working directory for our files
+    if [[ -n "$user" ]]; then # If the user option is set
+        path=$USER_PATH
+        mkdir -p $path
+    else
+        path="/etc/systemd/system/"
+    fi
+    
+    # Prompt user for the name of the timer
+    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
+        read -p "Enter name of timer (leave off the .timer extension): " name
+        name=""$name".timer"
+    else
+        name=""$1".timer"
+    fi
+    
+    echo
+    systemctl $user start "$name"
+    echo ""$name" has been started"
+    exit 0
+}
+
+function stop_timer {
+    # Set the working directory for our files
+    if [[ -n "$user" ]]; then # If the user option is set
+        path=$USER_PATH
+        mkdir -p $path
+    else
+        path="/etc/systemd/system/"
+    fi
+    
+    # Prompt user for the name of the timer
+    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
+        read -p "Enter name of timer (leave off the .timer extension): " name
+        name=""$name".timer"
+    else
+        name=""$1".timer"
+    fi
+    
+    echo
+    systemctl $user stop "$name"
+    echo ""$name" has been stopped"
     exit 0
 }
 
@@ -143,9 +183,16 @@ function disable_timer {
         name=""$1".timer"
     fi
     
+    echo
     systemctl $user disable "$name"
+    echo ""$name" has been disabled"
     exit 0
 }
+
+# If no options are supplied, display usage & exit
+if [[ $# == 0 ]]; then disp_usage; exit 1; fi
+
+USER_PATH="$HOME/.config/systemd/user/"
 
 while [[ $# > 0 ]]; do
     key="$1"
@@ -163,6 +210,16 @@ while [[ $# > 0 ]]; do
             enable_timer $TIMER_NAME
             shift
             ;;
+        -s|--start )
+            TIMER_NAME="$2"
+            start_timer $TIMER_NAME
+            shift
+            ;;
+        -S|--stop )
+            TIMER_NAME="$2"
+            stop_timer $TIMER_NAME
+            shift
+            ;;
         -d|--disable )
             TIMER_NAME="$2"
             disable_timer $TIMER_NAME
@@ -172,3 +229,6 @@ while [[ $# > 0 ]]; do
     esac
     shift
 done
+
+# Features to implement:
+#   -m | --modify  option
