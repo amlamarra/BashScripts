@@ -5,11 +5,14 @@ set -e
 # Make sure systemd is installed
 command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
 
+# DONE
 function disp_usage {
-    echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
-    echo "For more help: $0 -h"
+    echo -e "\nUsage:  $0 [-u|--user] OPTION [ARGUMENT]"
+    echo -e "For more help:  $0 -h\n"
+    exit 1
 }
 
+# DONE
 function disp_help {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
     echo "List, create, modify, & delete Systemd Timers"
@@ -23,31 +26,40 @@ function disp_help {
     echo "  -s, --start         Start timer"
     echo "  -S, --stop          Stop timer"
     echo "  -d, --disable       Disable timer"
-    echo "  -r, --remove        Remove (delete) timer"
+    echo "  -r, --remove        Remove (delete) timer files"
+    echo "                      Will also prompt to delete associated service file"
     
     exit 0
 }
 
+# DONE
 function list_timers {
     systemctl $user list-timers --all
     exit 0
 }
 
 function new_timer {
-    # Set the working directory for our files
+    name="$1"
+    # Prompt user for the name of the timer
+    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
+        read -p "Name of timer: " name
+        echo
+    fi
+    
+    # Add the .timer extension if the user didn't specify it
+    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        name=""$name".timer"
+    fi
+    
+    # Set the path
     if [[ -n "$user" ]]; then # If the user option is set
         path=$USER_PATH
         mkdir -p $path
     else
-        path="/etc/systemd/system/"
+        read -p "Path to the timer: (/etc/systemd/system/) " path
+        if [[ "$path" == '' ]]; then path="/etc/systemd/system/"; fi
     fi
     
-    # If the name argument was not supplied, then prompt for it
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Name the timer (leave off the .timer extension): " name
-    else
-        name="$1"
-    fi
     echo -e "Let's create a new timer called \""$name"\"\n"
     timer_path=$path
     timer_file=""$timer_path""$name".timer"
@@ -97,100 +109,147 @@ function new_timer {
     exit 0
 }
 
+# DONE
 function enable_timer {
-    # Set the working directory for our files
-    if [[ -n "$user" ]]; then # If the user option is set
-        path=$USER_PATH
-        mkdir -p $path
-    else
-        path="/etc/systemd/system/"
-    fi
-    
+    name="$1"
     # Prompt user for the name of the timer
     if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Enter name of timer (leave off the .timer extension): " name
-        name=""$name".timer"
-    else
-        name=""$1".timer"
+        read -p "Name of timer: " name
+        echo
     fi
     
-    echo
+    # Add the .timer extension if the user didn't specify it
+    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        name=""$name".timer"
+    fi
+    
+    # Try enabling the timer
     systemctl $user enable "$name"
     echo ""$name" has been enabled"
     exit 0
 }
 
+# DONE
 function start_timer {
-    # Set the working directory for our files
-    if [[ -n "$user" ]]; then # If the user option is set
-        path=$USER_PATH
-        mkdir -p $path
-    else
-        path="/etc/systemd/system/"
-    fi
-    
+    name="$1"
     # Prompt user for the name of the timer
     if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Enter name of timer (leave off the .timer extension): " name
-        name=""$name".timer"
-    else
-        name=""$1".timer"
+        read -p "Name of timer: " name
+        echo
     fi
     
-    echo
+    # Add the .timer extension if the user didn't specify it
+    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        name=""$name".timer"
+    fi
+    
+    # Try starting the timer
     systemctl $user start "$name"
     echo ""$name" has been started"
     exit 0
 }
 
+# DONE
 function stop_timer {
-    # Set the working directory for our files
-    if [[ -n "$user" ]]; then # If the user option is set
-        path=$USER_PATH
-        mkdir -p $path
-    else
-        path="/etc/systemd/system/"
-    fi
-    
+    name="$1"
     # Prompt user for the name of the timer
     if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Enter name of timer (leave off the .timer extension): " name
-        name=""$name".timer"
-    else
-        name=""$1".timer"
+        read -p "Name of timer: " name
+        echo
     fi
     
-    echo
+    # Add the .timer extension if the user didn't specify it
+    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        name=""$name".timer"
+    fi
+    
+    # Try stopping the timer
     systemctl $user stop "$name"
     echo ""$name" has been stopped"
     exit 0
 }
 
+# DONE
 function disable_timer {
-    # Set the working directory for our files
-    if [[ -n "$user" ]]; then # If the user option is set
-        path=$USER_PATH
-        mkdir -p $path
-    else
-        path="/etc/systemd/system/"
-    fi
-    
+    name="$1"
     # Prompt user for the name of the timer
     if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Enter name of timer (leave off the .timer extension): " name
-        name=""$name".timer"
-    else
-        name=""$1".timer"
+        read -p "Name of timer: " name
+        echo
     fi
     
-    echo
-    systemctl $user disable "$name"
-    echo ""$name" has been disabled"
+    # Add the .timer extension if the user didn't specify it
+    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        name=""$name".timer"
+    fi
+    
+    # Set the path
+    if [[ -n "$user" ]]; then # If the user option is set
+        path=$USER_PATH
+    else
+        read -p "Path to the timer: (/etc/systemd/system/) " path
+        if [[ "$path" == '' ]]; then path="/etc/systemd/system/"; fi
+    fi
+    
+    # Check if the timer exists
+    if [[ ! -e "$path""$name" ]]; then
+        echo "That timer ("$path""$name") does not exist"
+        exit 1
+    else # If so, then disable it
+        systemctl $user disable "$name"
+        echo ""$name" has been disabled"
+    fi
+    
+    exit 0
+}
+
+# DONE
+function remove_timer {
+    name="$1"
+    # Prompt user for the name of the timer
+    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
+        read -p "Name of timer: " name
+        echo
+    fi
+    
+    # Add the .timer extension if the user didn't specify it
+    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        name=""$name".timer"
+    fi
+    
+    # Set the path
+    if [[ -n "$user" ]]; then # If the user option is set
+        path=$USER_PATH
+    else
+        read -p "Path to the timer: (/etc/systemd/system/) " path
+        if [[ "$path" == '' ]]; then path="/etc/systemd/system/"; fi
+    fi
+    
+    # Prompt to remove associated service file
+    read -p "Remove the associated service file of the same prefix? (y/N) " ans
+    if [[ "$ans" == '' ]]; then ans="n"; fi
+    ans="$(echo "$ans" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$ans" == "y" ]]; then
+        prefix=$(echo $name | rev | cut -d '.' -f 2- | rev) # Removing extension
+        rm ""$path""$prefix".service"
+    fi
+    
+    rm "$path""$name"
+    echo ""$name" has been removed"
     exit 0
 }
 
 # If no options are supplied, display usage & exit
-if [[ $# == 0 ]]; then disp_usage; exit 1; fi
+if [[ $# == 0 ]]; then disp_usage; fi
+
+# Make sure the user isn't using too many options
+if [[ ( "$1" != "-u" && "$1" != "--user" ) && $# -gt 2 ]]; then
+    echo -e "\nOnly use one option at a time"
+    disp_usage
+elif [[ ( "$1" == "-u" || "$1" == "--user" ) && $# -gt 3 ]]; then
+    echo -e "\nOnly use one option at a time (not including the user option)"
+    disp_usage
+fi
 
 USER_PATH="$HOME/.config/systemd/user/"
 
@@ -225,6 +284,11 @@ while [[ $# > 0 ]]; do
             disable_timer $TIMER_NAME
             shift
             ;;
+        -r|--remove )
+            TIMER_NAME="$2"
+            remove_timer $TIMER_NAME
+            shift
+            ;;
         * ) disp_usage;;
     esac
     shift
@@ -232,3 +296,4 @@ done
 
 # Features to implement:
 #   -m | --modify  option
+#   Turn cron jobs into timers!
