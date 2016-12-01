@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # An easy way to manage all of your systemd timers
 set -e
+echo
 
 # Make sure systemd is installed
 command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
@@ -28,17 +29,19 @@ function disp_help {
     echo "  -d, --disable       Disable timer"
     echo "  -r, --remove        Remove (delete) timer files"
     echo "                      Will also prompt to delete associated service file"
-    
+    echo
     exit 0
 }
 
 # DONE
 function list_timers {
     systemctl $user list-timers --all
+    echo
     exit 0
 }
 
-function new_timer {
+# DONE
+function get_name {
     name="$1"
     # Prompt user for the name of the timer
     if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
@@ -50,15 +53,27 @@ function new_timer {
     if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
         name=""$name".timer"
     fi
-    
+}
+
+# DONE
+function get_path {
     # Set the path
     if [[ -n "$user" ]]; then # If the user option is set
         path=$USER_PATH
-        mkdir -p $path
     else
         read -p "Path to the timer: (/etc/systemd/system/) " path
         if [[ "$path" == '' ]]; then path="/etc/systemd/system/"; fi
+        echo
     fi
+}
+
+function new_timer {
+    get_name $1
+    
+    get_path
+    
+    # Create the directory, if necessary
+    if [[ -n "$user" ]]; then mkdir -p $path; fi
     
     echo -e "Let's create a new timer called \""$name"\"\n"
     timer_path=$path
@@ -106,98 +121,56 @@ function new_timer {
         echo "Unit="$service_file"" >> $timer_file
     fi
     
+    echo
     exit 0
 }
 
 # DONE
 function enable_timer {
-    name="$1"
-    # Prompt user for the name of the timer
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Name of timer: " name
-        echo
-    fi
-    
-    # Add the .timer extension if the user didn't specify it
-    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
-        name=""$name".timer"
-    fi
+    get_name $1
     
     # Try enabling the timer
     systemctl $user enable "$name"
-    echo ""$name" has been enabled"
+    echo -e ""$name" has been enabled\n"
+    
     exit 0
 }
 
 # DONE
 function start_timer {
-    name="$1"
-    # Prompt user for the name of the timer
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Name of timer: " name
-        echo
-    fi
-    
-    # Add the .timer extension if the user didn't specify it
-    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
-        name=""$name".timer"
-    fi
+    get_name $1
     
     # Try starting the timer
     systemctl $user start "$name"
-    echo ""$name" has been started"
+    echo -e ""$name" has been started\n"
+    
     exit 0
 }
 
 # DONE
 function stop_timer {
-    name="$1"
-    # Prompt user for the name of the timer
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Name of timer: " name
-        echo
-    fi
-    
-    # Add the .timer extension if the user didn't specify it
-    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
-        name=""$name".timer"
-    fi
+    get_name $1
     
     # Try stopping the timer
     systemctl $user stop "$name"
-    echo ""$name" has been stopped"
+    echo -e ""$name" has been stopped\n"
+    
     exit 0
 }
 
 # DONE
 function disable_timer {
-    name="$1"
-    # Prompt user for the name of the timer
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Name of timer: " name
-        echo
-    fi
+    get_name $1
     
-    # Add the .timer extension if the user didn't specify it
-    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
-        name=""$name".timer"
-    fi
-    
-    # Set the path
-    if [[ -n "$user" ]]; then # If the user option is set
-        path=$USER_PATH
-    else
-        read -p "Path to the timer: (/etc/systemd/system/) " path
-        if [[ "$path" == '' ]]; then path="/etc/systemd/system/"; fi
-    fi
+    get_path
     
     # Check if the timer exists
     if [[ ! -e "$path""$name" ]]; then
-        echo "That timer ("$path""$name") does not exist"
+        echo -e "That timer ("$path""$name") does not exist\n"
         exit 1
     else # If so, then disable it
         systemctl $user disable "$name"
-        echo ""$name" has been disabled"
+        echo -e ""$name" has been disabled\n"
     fi
     
     exit 0
@@ -205,25 +178,9 @@ function disable_timer {
 
 # DONE
 function remove_timer {
-    name="$1"
-    # Prompt user for the name of the timer
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
-        read -p "Name of timer: " name
-        echo
-    fi
+    get_name $1
     
-    # Add the .timer extension if the user didn't specify it
-    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
-        name=""$name".timer"
-    fi
-    
-    # Set the path
-    if [[ -n "$user" ]]; then # If the user option is set
-        path=$USER_PATH
-    else
-        read -p "Path to the timer: (/etc/systemd/system/) " path
-        if [[ "$path" == '' ]]; then path="/etc/systemd/system/"; fi
-    fi
+    get_path
     
     # Prompt to remove associated service file
     read -p "Remove the associated service file of the same prefix? (y/N) " ans
@@ -235,7 +192,8 @@ function remove_timer {
     fi
     
     rm "$path""$name"
-    echo ""$name" has been removed"
+    echo -e ""$name" has been removed\n"
+    
     exit 0
 }
 
@@ -259,36 +217,12 @@ while [[ $# > 0 ]]; do
         -u|--user ) user="--user";;
         -h|--help ) disp_help;;
         -l|--list ) list_timers;;
-        -n|--new )
-            TIMER_NAME="$2"
-            new_timer $TIMER_NAME
-            shift
-            ;;
-        -e|--enable )
-            TIMER_NAME="$2"
-            enable_timer $TIMER_NAME
-            shift
-            ;;
-        -s|--start )
-            TIMER_NAME="$2"
-            start_timer $TIMER_NAME
-            shift
-            ;;
-        -S|--stop )
-            TIMER_NAME="$2"
-            stop_timer $TIMER_NAME
-            shift
-            ;;
-        -d|--disable )
-            TIMER_NAME="$2"
-            disable_timer $TIMER_NAME
-            shift
-            ;;
-        -r|--remove )
-            TIMER_NAME="$2"
-            remove_timer $TIMER_NAME
-            shift
-            ;;
+        -n|--new ) new_timer "$2"; shift;;
+        -e|--enable ) enable_timer "$2"; shift;;
+        -s|--start ) start_timer "$2"; shift;;
+        -S|--stop ) stop_timer "$2"; shift;;
+        -d|--disable ) disable_timer "$2"; shift;;
+        -r|--remove ) remove_timer "$2"; shift;;
         * ) disp_usage;;
     esac
     shift
