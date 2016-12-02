@@ -44,14 +44,35 @@ function list_timers {
 function get_name {
     name="$1"
     # Prompt user for the name of the timer
-    if [[ -z "$1" ]] || [[ "$1" == -* ]]; then
+    if [[ -z "$1" ]]; then
         read -p "Name of timer: " name
         echo
     fi
     
     # Add the .timer extension if the user didn't specify it
-    if [[ $(echo $name | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+    if [[ $(echo "$name" | rev | cut -d '.' -f 1 | rev) != "timer" ]]; then
+        timer_prefix="$name"
         name=""$name".timer"
+    else
+        timer_prefix=$(echo "$name" | rev | cut -d '.' -f 1 | rev)
+    fi
+}
+
+# DONE
+function get_srvc_name {
+    srvc_name="$1"
+    # Prompt user for the name of the service
+    if [[ -z "$1" ]]; then
+        read -p "Name of service: " srvc_name
+        echo
+    fi
+    
+    # Add the .service extension if the user didn't specify it
+    if [[ $(echo "$srvc_name" | rev | cut -d '.' -f 1 | rev) != "service" ]]; then
+        srvc_prefix="$srvc_name"
+        srvc_name=""$srvc_name".service"
+    else
+        srvc_prefix=$(echo "$srvc_name" | rev | cut -d '.' -f 1 | rev)
     fi
 }
 
@@ -67,6 +88,18 @@ function get_path {
     fi
 }
 
+# DONE
+function get_srvc_path {
+    # Set the path
+    if [[ -n "$user" ]]; then # If the user option is set
+        srvc_path=$USER_PATH
+    else
+        read -p "Path to the service: (/etc/systemd/system/) " srvc_path
+        if [[ "$srvc_path" == '' ]]; then srvc_path="/etc/systemd/system/"; fi
+        echo
+    fi
+}
+
 function new_timer {
     get_name $1
     
@@ -76,49 +109,55 @@ function new_timer {
     if [[ -n "$user" ]]; then mkdir -p $path; fi
     
     echo -e "Let's create a new timer called \""$name"\"\n"
-    timer_path=$path
-    timer_file=""$timer_path""$name".timer"
+    timer_file="$path""$name"
     
     # Prompt the user to see if we need to set the Unit= option.
-    while [[ $existing != 'y' ]] && [[ $existing != 'n' ]]; do
+    while [[ "$existing" != 'y' ]] && [[ "$existing" != 'n' ]]; do
         read -p "Will this timer control an existing service? (y/N) " existing
         existing="$(echo "$existing" | tr '[:upper:]' '[:lower:]')"
         if [[ "$existing" == '' ]]; then existing="n"; fi
+        echo
     done
+    
     # If yes, then gather more information
     if [[ $existing == 'y' ]]; then
-        read -p "Name of the existing service (leave off the .service extension): " service
-        echo
-        service=""$service".service"
-        if [[ ! -e ""$path""$service"" ]]; then
-            echo "That service file does not exist in the user service path ("$path")"
+        get_srvc_name
+        
+        get_srvc_path
+        srvc_file = "$srvc_path""$srvc_name"
+        
+        # If the service file doesn't exist...
+        while [[ ! -e "$srvc_file" ]]; do
+            echo "That service file does not exist in the default path ("$path")"
+            read -p "Would you like to specify a different path? (y/N) " ans
+            ans="$(echo "$ans" | tr '[:upper:]' '[:lower:]')"
+            if [[ "$ans" == '' ]]; then ans="n"; fi
+            if [[ "$ans" == 'y' ]]; then get_srvc_name; else exit 1; fi
+        done
+        
+        if [[ ! -e "$srvc_file" ]]; then
+            echo "The service file does not exist ("$srvc_file")"
             exit 1
         fi
-        if [[ ! -n "$user" ]]; then
-            read -p "Directory of the service file? ($path) " service_path
-            if [[ "$service_path" == '' ]]; then service_path=$path; fi
-        else
-            service_path="$path"
-        fi
-        if [[ ! -e ""$service_path""$service"" ]]; then
-            echo "The service file does not exist ("$service_path""$service")"
-            exit 1
-        fi
-        service_file=""$service_path""$service""
     # If no, then just set the appropriate variables
-    elif [[ $existing == 'n' ]]; then
-        service=""$name".service"
-        service_path="$path"
-        service_file=""$service_path""$service""
+    elif [[ "$existing" == 'n' ]]; then
+        srvc_prefix="$timer_prefix"
+        srvc_name="$srvc_prefix.service"
+        srvc_path="$path"
+        srvc_file=""$srvc_path""$srvc_name""
     fi
     
     # Ask the user for the description & add it to the .timer file
-    read -p "<"$name".timer> Description: " desc
+    read -p "<"$name"> Description: " desc
     echo -e "[Unit]\nDescription="$desc"\n\n[Timer]" > $timer_file
     
     # Add the Unit= option to the timer file if necessary
-    if [[ $service != $name ]]; then
-        echo "Unit="$service_file"" >> $timer_file
+    if [[ "$srvc_prefix" != "$timer_prefix" ]]; then
+        echo "Unit="$srvc_file"" >> $timer_file
+    fi
+    
+    if [[ "$existing" == 'n' ]]; then
+        echo -e "[Unit]\n" > $srvc_file
     fi
     
     echo
@@ -183,9 +222,11 @@ function remove_timer {
     get_path
     
     # Prompt to remove associated service file
-    read -p "Remove the associated service file of the same prefix? (y/N) " ans
-    if [[ "$ans" == '' ]]; then ans="n"; fi
-    ans="$(echo "$ans" | tr '[:upper:]' '[:lower:]')"
+    while [[ $existing != 'y' ]] && [[ $existing != 'n' ]]; do
+        read -p "Remove the associated service file of the same prefix? (y/N) " ans
+        ans="$(echo "$ans" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$ans" == '' ]]; then ans="n"; fi
+    done
     if [[ "$ans" == "y" ]]; then
         prefix=$(echo $name | rev | cut -d '.' -f 2- | rev) # Removing extension
         rm ""$path""$prefix".service"
