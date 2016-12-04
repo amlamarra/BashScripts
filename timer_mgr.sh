@@ -27,8 +27,7 @@ function disp_help {
     echo "  -s, --start         Start timer"
     echo "  -S, --stop          Stop timer"
     echo "  -d, --disable       Disable timer"
-    echo "  -r, --remove        Remove (delete) timer files"
-    echo "                      Will also prompt to delete associated service file"
+    echo "  -r, --remove        Remove (delete) timer and/or associated service files"
     echo
     exit 0
 }
