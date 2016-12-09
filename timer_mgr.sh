@@ -4,7 +4,7 @@ set -e
 echo
 
 # Make sure systemd is installed
-command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
+#command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
 
 # DONE
 function disp_usage {
@@ -16,20 +16,73 @@ function disp_usage {
 # DONE
 function disp_help {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
-    echo "List, create, modify, & delete Systemd Timers"
-    echo "Only use one option at a time (not including -u)"
+    echo 'List, create, modify, & delete Systemd Timers'
+    echo 'Only use one option at a time (not including -u)'
     echo
-    echo "  -u, --user          Deal only with user timers (not run as root)"
-    echo "  -h, --help          Display this help dialog"
-    echo "  -l, --list          List the current timers"
-    echo "  -n, --new           Create a new timer"
-    echo "  -e, --enable        Enable timer"
-    echo "  -s, --start         Start timer"
-    echo "  -S, --stop          Stop timer"
-    echo "  -d, --disable       Disable timer"
-    echo "  -r, --remove        Remove (delete) timer and/or associated service files"
+    echo '  -u, --user          Deal only with user timers (not run as root)'
+    echo '  -h, --help          Display this help dialog'
+    echo '  -l, --list          List the current timers'
+    echo '  -n, --new           Create a new timer'
+    echo '  -e, --enable        Enable timer'
+    echo '  -s, --start         Start timer'
+    echo '  -S, --stop          Stop timer'
+    echo '  -d, --disable       Disable timer'
+    echo '  -r, --remove        Remove (delete) timer and/or associated service files'
     echo
     exit 0
+}
+
+# DONE
+function timer_options {
+    echo 'AccuracySec='
+    echo '    Specify the accuracy the timer shall elapse with. Defaults to 1min.'
+    echo
+    echo 'RandomizedDelaySec='
+    echo '    Delay the timer by a randomly selected, evenly distributed amount of time'
+    echo '    between 0 and the specified time value. Defaults to 0, indicating that no'
+    echo '    randomized delay shall be applied.'
+    echo
+    echo 'Persistent=(true|false)'
+    echo '    If true, the time when the service was last triggered is stored on disk.'
+    echo '    The service unit is triggered immediately if the next run is missed.'
+    echo '    This is useful to catch up on missed runs of the service when the machine'
+    echo '    was off. Only use with OnCalendar= (realtime timers). Defaults to false.'
+    echo
+    echo 'WakeSystem=(true|false)'
+    echo '    If true, an elapsing timer will cause the system to resume from suspend,'
+    echo '    should it be suspended and if the system supports this. Defaults to false.'
+    echo
+    echo 'RemainAfterElapse=(true|false)'
+    echo '    If true, an elapsed timer will stay loaded, and its state remains queriable.'
+    echo '    If false, an elapsed timer unit that cannot elapse anymore is unloaded.'
+    echo '    Turning this off is particularly useful for transient timer units that shall'
+    echo '    disappear after they first elapse.'
+    echo
+}
+
+# DONE
+function time_syntax {
+    echo 'VALUE [UNIT]'
+    echo '    If no time unit is specified, seconds are assumed.'
+    echo
+    echo 'Possible units:'
+    echo '    usec, us'
+    echo '    msec, ms'
+    echo '    seconds, second, sec, s'
+    echo '    minutes, minute, min, m'
+    echo '    hours, hour, hr, h'
+    echo '    days, day, d'
+    echo '    weeks, week, w'
+    echo '    months, month, M (defined as 30.44 days)'
+    echo '    years, year, y (defined as 365.25 days)'
+    echo 'Examples:'
+    echo '    2 h'
+    echo '    2hours'
+    echo '    48hr'
+    echo '    1y 12month'
+    echo '    55s500ms'
+    echo '    300ms20s 5day'
+    echo
 }
 
 # DONE
@@ -146,18 +199,40 @@ function new_timer {
         srvc_file=""$srvc_path""$srvc_name""
     fi
     
-    # Ask the user for the description & add it to the .timer file
-    read -p "<"$name"> Description: " desc
-    echo -e "[Unit]\nDescription="$desc"\n\n[Timer]" > $timer_file
+    # Ask the user for the timer description
+    read -p "<"$name"> Description: " Description
+    
+    echo "Realtime timers will activate at a specific time or day."
+    echo "Monotonic timers will activate at specific intervals."
+    echo
+    echo "Create a realtime or monotonic timer?"
+    
+    PS3='Make a selection: '
+    options=("Realtime" "Monotonic")
+    select type in "${options[@]}"
+    do
+        case $type in
+            "Realtime") break;;
+            "Monotonic") break;;
+            *) echo "Invalid option";;
+        esac
+    done
+    
+    echo -e "\nYou selected "$type""
+    
+    # CREATING TIMER FILE
+    #echo -e "[Unit]\nDescription="$desc"\n\n[Timer]" > $timer_file
     
     # Add the Unit= option to the timer file if necessary
-    if [[ "$srvc_prefix" != "$timer_prefix" ]]; then
-        echo "Unit="$srvc_file"" >> $timer_file
-    fi
+    #if [[ "$srvc_prefix" != "$timer_prefix" ]]; then
+    #    echo "Unit="$srvc_file"" >> $timer_file
+    #fi
     
-    if [[ "$existing" == 'n' ]]; then
-        echo -e "[Unit]\n" > $srvc_file
-    fi
+    
+    # CREATING SERVICE FILE
+    #if [[ "$existing" == 'n' ]]; then
+    #    echo -e "[Unit]\n" > $srvc_file
+    #fi
     
     echo
     exit 0
