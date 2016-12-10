@@ -4,7 +4,7 @@ set -e
 echo
 
 # Make sure systemd is installed
-#command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
+command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
 
 # DONE
 function disp_usage {
@@ -56,7 +56,7 @@ function timer_options {
     echo '    If true, an elapsed timer will stay loaded, and its state remains queriable.'
     echo '    If false, an elapsed timer unit that cannot elapse anymore is unloaded.'
     echo '    Turning this off is particularly useful for transient timer units that shall'
-    echo '    disappear after they first elapse.'
+    echo '    disappear after they first elapse. Defaults to true.'
     echo
 }
 
@@ -82,6 +82,45 @@ function time_syntax {
     echo '    1y 12month'
     echo '    55s500ms'
     echo '    300ms20s 5day'
+    echo
+}
+
+# DONE
+function calendar_syntax {
+    echo 'Examples for valid timestamps and their normalized form:'
+    echo
+    echo '  Sat,Thu,Mon..Wed,Sat..Sun → Mon..Thu,Sat,Sun *-*-* 00:00:00'
+    echo '      Mon,Sun 12-*-* 2,1:23 → Mon,Sun 2012-*-* 01,02:23:00'
+    echo '                    Wed *-1 → Wed *-*-01 00:00:00'
+    echo '           Wed..Wed,Wed *-1 → Wed *-*-01 00:00:00'
+    echo '                 Wed, 17:48 → Wed *-*-* 17:48:00'
+    echo 'Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03'
+    echo '                *-*-7 0:0:0 → *-*-07 00:00:00'
+    echo '                      10-15 → *-10-15 00:00:00'
+    echo '        monday *-12-* 17:00 → Mon *-12-* 17:00:00'
+    echo '  Mon,Fri *-*-3,1,2 *:30:45 → Mon,Fri *-*-01,02,03 *:30:45'
+    echo '       12,14,13,12:20,10,30 → *-*-* 12,13,14:10,20,30:00'
+    echo '            12..14:10,20,30 → *-*-* 12,13,14:10,20,30:00'
+    echo '  mon,fri *-1/2-1,3 *:30:45 → Mon,Fri *-01/2-01,03 *:30:45'
+    echo '             03-05 08:05:40 → *-03-05 08:05:40'
+    echo '                   08:05:40 → *-*-* 08:05:40'
+    echo '                      05:40 → *-*-* 05:40:00'
+    echo '     Sat,Sun 12-05 08:05:40 → Sat,Sun *-12-05 08:05:40'
+    echo '           Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40'
+    echo '           2003-03-05 05:40 → 2003-03-05 05:40:00'
+    echo ' 05:40:23.4200004/3.1700005 → 05:40:23.420000/3.170001'
+    echo '             2003-02..04-05 → 2003-02,03,04-05 00:00:00'
+    echo '       2003-03-05 05:40 UTC → 2003-03-05 05:40:00 UTC'
+    echo '                 2003-03-05 → 2003-03-05 00:00:00'
+    echo '                      03-05 → *-03-05 00:00:00'
+    echo '                     hourly → *-*-* *:00:00'
+    echo '                      daily → *-*-* 00:00:00'
+    echo '                  daily UTC → *-*-* 00:00:00 UTC'
+    echo '                    monthly → *-*-01 00:00:00'
+    echo '                     weekly → Mon *-*-* 00:00:00'
+    echo '                     yearly → *-01-01 00:00:00'
+    echo '                   annually → *-01-01 00:00:00'
+    echo '                      *:2/3 → *-*-* *:02/3:00'
     echo
 }
 
@@ -199,14 +238,15 @@ function new_timer {
         srvc_file=""$srvc_path""$srvc_name""
     fi
     
-    # Ask the user for the timer description
+    # Creating the timer file & adding the description
     read -p "<"$name"> Description: " Description
+    echo -e "[Unit]\nDescription="$Description"\n\n[Timer]" > $timer_file
     
-    echo "Realtime timers will activate at a specific time or day."
-    echo "Monotonic timers will activate at specific intervals."
+    # What type of timer will this be?
+    echo -e '\nRealtime timers will activate at a specific time or day.'
+    echo 'Monotonic timers will activate at specific intervals.'
     echo
-    echo "Create a realtime or monotonic timer?"
-    
+    echo 'Create a realtime or monotonic timer?'
     PS3='Make a selection: '
     options=("Realtime" "Monotonic")
     select type in "${options[@]}"
@@ -217,24 +257,75 @@ function new_timer {
             *) echo "Invalid option";;
         esac
     done
+    echo
     
-    echo -e "\nYou selected "$type""
+    # Setting timer frequencies
+    if [[ $type == "Monotonic" ]]; then
+        echo '(simply enter "s" without quotes to display the syntax)'
+        read -p 'How long should the timer wait after boot before being activated? ' OnBootSec
+        echo
+        
+        if [[ "$OnBootSec" == "s" ]]; then
+            time_syntax
+            read -p 'How long should the timer wait after boot before being activated? ' OnBootSec
+        fi
+        echo
+        read -p 'How frequently should the timer be activated after that? ' OnUnitActiveSec
+        echo
+        
+        # Add this information to the timer file
+        echo -e "OnBootSec="$OnBootSec"\nOnUnitActiveSec="$OnUnitActiveSec"" >> $timer_file
+    elif [[ $type == "Realtime" ]]; then
+        echo '(simply enter "s" without quotes to display the syntax)'
+        read -p 'Enter the calendar event expression: ' OnCalendar
+        
+        if [[ "$OnCalendar" == "s" ]]; then
+            calendar_syntax
+            read -p 'Enter the calendar event expression: ' OnCalendar
+        fi
+        echo -e "OnCalendar="$OnCalendar"" >> $timer_file
+        echo
+    fi
     
-    # CREATING TIMER FILE
-    #echo -e "[Unit]\nDescription="$desc"\n\n[Timer]" > $timer_file
+    # Prompt user for additional options for the timer
+    echo 'Additional timer options:'
+    PS3='Make a selection: '
+    options=("AccuracySec=" "RandomizedDelaySec=" "Persistent=" "WakeSystem="
+        "RemainAfterElapse=" "Display options help" "Done adding options")
+    select type in "${options[@]}"
+    do
+        case $type in
+            "AccuracySec=") read -p 'Specify accuracy: (VALUE [UNIT]) ' AccuracySec;;
+            "RandomizedDelaySec=") read -p 'Randomized delay: (VALUE [UNIT]) ' RandomizedDelaySec;;
+            "Persistent=") Persistent=true; echo 'Adding Persistent=true';;
+            "WakeSystem=") WakeSystem=true; echo 'Adding WakeSystem=true';;
+            "RemainAfterElapse=") RemainAfterElapse=false; echo 'Adding RemainAfterElapse=false';;
+            "Display options help") echo; timer_options;;
+            "Done adding options") break;;
+            *) echo "Invalid option";;
+        esac
+    done
+    
+    if [[ -n "$AccuracySec" ]]; then echo "AccuracySec="$AccuracySec"" >> $timer_file; fi
+    if [[ -n "$RandomizedDelaySec" ]]; then echo "RandomizedDelaySec="$RandomizedDelaySec"" >> $timer_file; fi
+    if [[ -n "$Persistent" ]]; then echo "Persistent=$Persistent" >> $timer_file; fi
+    if [[ -n "$WakeSystem" ]]; then echo "WakeSystem=$WakeSystem" >> $timer_file; fi
+    if [[ -n "$RemainAfterElapse" ]]; then echo "RemainAfterElapse=$RemainAfterElapse" >> $timer_file; fi
     
     # Add the Unit= option to the timer file if necessary
-    #if [[ "$srvc_prefix" != "$timer_prefix" ]]; then
-    #    echo "Unit="$srvc_file"" >> $timer_file
-    #fi
+    if [[ "$srvc_prefix" != "$timer_prefix" ]]; then
+        echo "Unit="$srvc_file"" >> $timer_file
+    fi
     
+    # Add the [Install] section
+    echo -e '\n[Install]\nWantedBy=timers.target' >> $timer_file
+    echo -e "\nThe following timer file has been created: "$timer_file"\n"
     
     # CREATING SERVICE FILE
     #if [[ "$existing" == 'n' ]]; then
     #    echo -e "[Unit]\n" > $srvc_file
     #fi
     
-    echo
     exit 0
 }
 
