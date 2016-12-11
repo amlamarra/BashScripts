@@ -4,8 +4,8 @@ set -e
 echo
 
 # Make sure systemd is installed
-#command -v systemctl >/dev/null 2>&1 || { echo -e \
-#"I require systemd, but it's not installed.  Aborting.\n" >&2; exit 1; }
+command -v systemctl >/dev/null 2>&1 || { echo -e \
+"I require systemd, but it's not installed.  Aborting.\n" >&2; exit 1; }
 
 function disp_usage {
     echo -e "Usage:  $0 [-u|--user] OPTION [ARGUMENT]"
