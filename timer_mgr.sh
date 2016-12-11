@@ -4,16 +4,15 @@ set -e
 echo
 
 # Make sure systemd is installed
-#command -v systemctl >/dev/null 2>&1 || { echo "I require systemd, but it's not installed.  Aborting." >&2; exit 1; }
+#command -v systemctl >/dev/null 2>&1 || { echo -e \
+#"I require systemd, but it's not installed.  Aborting.\n" >&2; exit 1; }
 
-# DONE
 function disp_usage {
     echo -e "Usage:  $0 [-u|--user] OPTION [ARGUMENT]"
     echo -e "For more help:  $0 -h\n"
     exit 1
 }
 
-# DONE
 function disp_help {
     echo "Usage: $0 [-u|--user] OPTION [ARGUMENT]"
     echo 'List, create, modify, & delete Systemd Timers'
@@ -32,7 +31,6 @@ function disp_help {
     exit 0
 }
 
-# DONE
 function timer_options {
     echo 'AccuracySec='
     echo '    Specify the accuracy the timer shall elapse with. Defaults to 1min.'
@@ -60,7 +58,6 @@ function timer_options {
     echo
 }
 
-# DONE
 function time_syntax {
     echo 'VALUE [UNIT]'
     echo '    If no time unit is specified, seconds are assumed.'
@@ -85,7 +82,6 @@ function time_syntax {
     echo
 }
 
-# DONE
 function calendar_syntax {
     echo 'Examples for valid timestamps and their normalized form:'
     echo
@@ -124,14 +120,12 @@ function calendar_syntax {
     echo
 }
 
-# DONE
 function list_timers {
     systemctl $user list-timers --all
     echo
     exit 0
 }
 
-# DONE
 function get_name {
     name="$1"
     # Prompt user for the name of the timer
@@ -149,7 +143,6 @@ function get_name {
     fi
 }
 
-# DONE
 function get_srvc_name {
     srvc_name="$1"
     # Prompt user for the name of the service
@@ -167,7 +160,6 @@ function get_srvc_name {
     fi
 }
 
-# DONE
 function get_path {
     # Set the path
     if [[ -n "$user" ]]; then # If the user option is set
@@ -179,7 +171,6 @@ function get_path {
     fi
 }
 
-# DONE
 function get_srvc_path {
     # Set the path
     if [[ -n "$user" ]]; then # If the user option is set
@@ -191,7 +182,6 @@ function get_srvc_path {
     fi
 }
 
-# DONE?
 function new_timer {
     get_name $1
     
@@ -343,7 +333,6 @@ function new_timer {
     exit 0
 }
 
-# DONE
 function enable_timer {
     get_name $1
     
@@ -354,7 +343,6 @@ function enable_timer {
     exit 0
 }
 
-# DONE
 function start_timer {
     get_name $1
     
@@ -365,7 +353,6 @@ function start_timer {
     exit 0
 }
 
-# DONE
 function stop_timer {
     get_name $1
     
@@ -376,7 +363,6 @@ function stop_timer {
     exit 0
 }
 
-# DONE
 function disable_timer {
     get_name $1
     
@@ -394,7 +380,6 @@ function disable_timer {
     exit 0
 }
 
-# DONE
 function remove_timer {
     get_name $1
     
