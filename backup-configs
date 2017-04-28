@@ -14,22 +14,51 @@ if [[ "$EUID" -ne 0 ]]; then exit 1; fi
 # Make sure duplicity is installed
 command -v duplicity >/dev/null 2>&1 || exit 1;
 
+# Make sure the backup location is mounted
+mountdir=/mnt/backup
+mountpoint -q "$mountdir" || exit 1;
+
 # Source the PASSPHRASE variable
 . /root/.duplicitykey
 export PASSPHRASE
 
 # Use the absolute path for the duplicity command
 dup="$(which duplicity)"
-# Set the base backup location
-buloc="file:///mnt/backup/ubuntu"
+
+# Set the base backup directory
+name="$(hostname)"
+budir="$mountdir/$name"
+# Set the base backup url
+buurl="file://$budir"
+# Set the backup log file
+budate="$(date +%Y%m%d)"
+logdir=/var/log/duplicity
+bulog="$logdir"/duplicity_"$budate"_backup.log
+mkdir -p "$logdir"
 
 function three_step {
 	# Make sure the directory exists
-	mkdir -p /mnt/backup/ubuntu/"$1"
+	mkdir -p "$budir/$1"
+
+	{
+	echo "###########################################################";
+	echo "# BACKING UP /$1";
+	echo "###########################################################";
+	} >> "$bulog"
+	
 	# Do a full backup every month. Otherwise, do an incremental.
-	$dup --full-if-older-than 1M /"$1" $buloc/"$1"
+	if [[ $2 ]]; then
+		$dup --full-if-older-than 1M --exclude "**/$2" "/$1" "$buurl/$1" >> "$bulog"
+	else
+		$dup --full-if-older-than 1M "/$1" "$buurl/$1" >> "$bulog"
+	fi
+	
 	# Keep only the last 3 full backups
-	$dup remove-all-but-n-full 3 --force $buloc/"$1"
+	{
+	echo "Removing old backups if necessary (keep 3 full backups)...";
+	$dup remove-all-but-n-full 3 --force "$buurl/$1";
+	echo -e "\n";
+	} >> "$bulog"
 }
 
-three_step "etc/ufw"
+three_step "etc/sample" "test.txt"
