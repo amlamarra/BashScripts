@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+#########################################################################
+## Title:        backup-configs
+## Description:	 Backup all custom configs to the mounted backup location
+## Author:       Andrew Lamarra
+## Created:      4/27/2017
+## Dependencies: duplicity
+#########################################################################
+
+# Check if running as root
+if [[ "$EUID" -ne 0 ]]; then exit 1; fi
+
+# Make sure duplicity is installed
+command -v duplicity >/dev/null 2>&1 || exit 1;
+
+# Source the PASSPHRASE variable
+. /root/.duplicitykey
+export PASSPHRASE
+
+# Use the absolute path for the duplicity command
+dup="$(which duplicity)"
+# Set the base backup location
+buloc="file:///mnt/backup/ubuntu"
+
+function three_step {
+	# Make sure the directory exists
+	mkdir -p /mnt/backup/ubuntu/"$1"
+	# Do a full backup every month. Otherwise, do an incremental.
+	$dup --full-if-older-than 1M /"$1" $buloc/"$1"
+	# Keep only the last 3 full backups
+	$dup remove-all-but-n-full 3 --force $buloc/"$1"
+}
+
+three_step "etc/ufw"
