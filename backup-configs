@@ -5,6 +5,7 @@
 ## Description:	 Backup all custom configs to the mounted backup location
 ## Author:       Andrew Lamarra
 ## Created:      4/27/2017
+## Last updated: 5/4/2017
 ## Dependencies: duplicity
 #########################################################################
 
@@ -26,31 +27,40 @@ export PASSPHRASE
 dup="$(which duplicity)"
 
 # Set the base backup directory
-name="$(hostname)"
-budir="$mountdir/$name"
+budir="$mountdir/$(hostname)"
+
 # Set the base backup url
 buurl="file://$budir"
+
 # Set the backup log file
-budate="$(date +%Y%m%d)"
 logdir=/var/log/duplicity
-bulog="$logdir"/duplicity_"$budate"_backup.log
+bulog="$logdir/duplicity_$(date +%Y%m%d)_backup.log"
+
+# Make sure the log directory exists
 mkdir -p "$logdir"
 
+# This function will perform 3 steps:
+# 1. Make sure the backup location exists
+# 2. Run the backups
+# 3. Remove all backups older than the last 3 full backups
+# All output is saved to a separate file each day in /var/log/duplicity
 function three_step {
 	# Make sure the directory exists
 	mkdir -p "$budir/$1"
 
+	# Indicate which directory is being backed up in the logs
 	{
 	echo "###########################################################";
 	echo "# BACKING UP /$1";
 	echo "###########################################################";
 	} >> "$bulog"
 	
-	# Do a full backup every month. Otherwise, do an incremental.
+	# If a second argument exists, then exclude that from the backups.
 	if [[ $2 ]]; then
-		$dup --full-if-older-than 1M --exclude "**/$2" "/$1" "$buurl/$1" >> "$bulog"
+		# Do a full backup every month. Otherwise, do an incremental.
+		$dup --full-if-older-than 1M --exclude "**/$2" "/$1" "$buurl/$1" >> "$bulog" 2>&1
 	else
-		$dup --full-if-older-than 1M "/$1" "$buurl/$1" >> "$bulog"
+		$dup --full-if-older-than 1M "/$1" "$buurl/$1" >> "$bulog" 2>&1
 	fi
 	
 	# Keep only the last 3 full backups
@@ -58,7 +68,10 @@ function three_step {
 	echo "Removing old backups if necessary (keep 3 full backups)...";
 	$dup remove-all-but-n-full 3 --force "$buurl/$1";
 	echo -e "\n";
-	} >> "$bulog"
+	} >> "$bulog" 2>&1
 }
 
-three_step "etc/sample" "test.txt"
+# Call the 'three_step' function for each directory you wish to backup
+# A second argument can be added if there's a subdirectory you wish to exclude
+# Leave off the leading slash "/"
+three_step "etc/sampledir" "subdirectory"
