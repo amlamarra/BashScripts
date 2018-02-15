@@ -75,3 +75,6 @@ function three_step {
 # A second argument can be added if there's a subdirectory you wish to exclude
 # Leave off the leading slash "/"
 three_step "etc/sampledir" "subdirectory"
+
+# Optionally, backup a mysql database
+mysqldump --all-databases > "$budir/mysql_database_backup.sql"
