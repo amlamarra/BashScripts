@@ -39,6 +39,12 @@ bulog="$logdir/duplicity_$(date +%Y%m%d)_backup.log"
 # Make sure the log directory exists
 mkdir -p "$logdir"
 
+# Optionally, backup a mysql database
+mysqldump --all-databases > "$budir/mysql_database_backup.sql"
+
+# Add a header to the logs
+echo -e "$(date)\n" >> "$bulog"
+
 # This function will perform 3 steps:
 # 1. Make sure the backup location exists
 # 2. Run the backups
@@ -76,5 +82,5 @@ function three_step {
 # Leave off the leading slash "/"
 three_step "etc/sampledir" "subdirectory"
 
-# Optionally, backup a mysql database
-mysqldump --all-databases > "$budir/mysql_database_backup.sql"
+# Delete old log files (keep 1 month)
+find $logdir -mtime +31 -delete
