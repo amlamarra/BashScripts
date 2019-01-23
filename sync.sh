@@ -25,6 +25,7 @@ function dir_not_found {
 	echo -e "A repo in your $list file was not found in $base."
 
 	# Ask the user about cloning the repo (and repeat if input is invalid)
+	ans=''
 	while [[ $ans != 'y' ]] && [[ $ans != 'n' ]]; do
 		read -rp "Would you like to clone it? (Y/n) " ans
 		if [[ $ans == '' ]]; then ans="y"; fi
@@ -39,6 +40,7 @@ function dir_not_found {
 	fi
 
 	# Ask the user if they'd like to remove that repo from the list
+	ans=''
 	while [[ $ans != 'y' ]] && [[ $ans != 'n' ]]; do
 		read -rp "Would you like to remove this repo from your $list file? (Y/n) " ans
 		if [[ $ans == '' ]]; then ans="y"; fi
@@ -47,8 +49,8 @@ function dir_not_found {
 
 	# If 'yes' then delete the line from the list of repos
 	if [[ $ans == 'y' ]]; then
-		user=$(echo $repo | cut -d/ -f4)
-		repo=$(echo $repo | cut -d/ -f5)
+		user=$(echo "$1" | cut -d/ -f4)
+		repo=$(echo "$1" | cut -d/ -f5)
 		sed -i "/$user\/$repo/d" $to_sync
 	fi
 }
@@ -95,4 +97,3 @@ for url in "${urls[@]}"; do
 	for i in "${dirs[@]}"; do echo -e "\t\t$i"; done
 	echo
 done
-
