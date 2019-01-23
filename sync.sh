@@ -22,6 +22,7 @@ readarray -t urls < $to_sync
 dirs=( $(find $base -maxdepth 1 -mindepth 1 -type d) )
 
 function dir_not_found {
+	url="$1"
 	echo -e "A repo in your $list file was not found in $base."
 
 	# Ask the user about cloning the repo (and repeat if input is invalid)
@@ -35,7 +36,7 @@ function dir_not_found {
 	# Clone the repo if the user answers 'yes'
 	if [[ $ans == 'y' ]]; then
 		cd "$base"
-		git clone "$1"
+		git clone "$url"
 		return
 	fi
 
@@ -49,16 +50,45 @@ function dir_not_found {
 
 	# If 'yes' then delete the line from the list of repos
 	if [[ $ans == 'y' ]]; then
-		user=$(echo "$1" | cut -d/ -f4)
-		repo=$(echo "$1" | cut -d/ -f5)
+		user=$(echo "$url" | cut -d/ -f4)
+		repo=$(echo "$url" | cut -d/ -f5)
 		sed -i "/$user\/$repo/d" $to_sync
 	fi
 }
 
 function repo_not_found {
-	true
+	url="$1"
+	dir="$2"
+
+	echo "The following repository was found in your $base/ directory:"
+	echo -e "\t$url"
+	ans=''
+	while [[ $ans != 'y' ]] && [[ $ans != 'n' ]]; do
+		read -rp "Would you like to add it to your $list file? (Y/n) " ans
+		if [[ $ans == '' ]]; then ans="y"; fi
+		ans=$(echo "$ans" | tr '[:upper:]' '[:lower:]')
+	done
+	
+	if [[ $ans == 'y' ]]; then
+		echo "$url" >> "$to_sync"
+		return
+	fi
+	
+	# Ask the user if they'd like to remove that repo from the list
+	ans=''
+	while [[ $ans != 'y' ]] && [[ $ans != 'n' ]]; do
+		read -rp "Would you like to remove the repository ($dir)? (Y/n) " ans
+		if [[ $ans == '' ]]; then ans="y"; fi
+		ans=$(echo "$ans" | tr '[:upper:]' '[:lower:]')
+	done
+
+	# If 'yes' then delete the line from the list of repos
+	if [[ $ans == 'y' ]]; then
+		rm -rf "$dir"
+	fi
 }
 
+# Iterate over the repos found in the list
 for url in "${urls[@]}"; do
 	counter=0
 	echo "Now checking to make sure $url is here."
@@ -68,7 +98,8 @@ for url in "${urls[@]}"; do
 	for i in "${dirs[@]}"; do echo -e "\t\t$i"; done
 	echo
 
-	while read dir; do
+	#while read dir; do
+	for dir in "${dirs[@]}"; do
 		# Save the current number of elements in the dirs array
 		num_dirs="${#dirs[@]}"
 
@@ -84,7 +115,8 @@ for url in "${urls[@]}"; do
 			echo -e "\tNo. Continuing..."
 			counter=$((counter + 1))
 		fi
-	done < <(printf '%s\n' "${dirs[@]}")
+	#done < <(printf '%s\n' "${dirs[@]}")
+	done
 
 	echo -e "\tCounter = $counter\n"
 
@@ -96,4 +128,13 @@ for url in "${urls[@]}"; do
 	echo -e "\tCurrent dirs array:"
 	for i in "${dirs[@]}"; do echo -e "\t\t$i"; done
 	echo
+done
+
+# Iterate through leftover dirs to see if any are repos not in the list
+for dir in "${dirs[@]}"; do
+	cd "$dir"
+	url=$(git config --get remote.origin.url)
+	if [[ $? == 0 ]]; then
+		repo_not_found "$url" "$dir"
+	fi
 done
