@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #########################################################################
-## Title:        sync.sh
+## Title:        reposync.sh
 ## Description:	 Syncs multiple git repositories in ~/tools/ based on the
-##               ~/tools/list.txt file. Put each repo URL in there.
+##               ~/.repolist file. Put each repo URL in there.
 ## Author:       Andrew Lamarra
 ## Created:      01/23/2019
 ## Dependencies: bash (v4.0+), git
@@ -10,8 +10,8 @@
 
 # Setup
 base=~/tools
-list=list.txt
-to_sync=$base/$list
+list=.repolist
+to_sync=~/$list
 cd ~
 urls=()
 
@@ -53,8 +53,8 @@ function dir_not_found {
 
 	# If 'yes' then delete the line from the list of repos
 	if [[ $ans == 'y' ]]; then
-		user=$(echo "$repo_url" | cut -d/ -f4)
-		repo=$(echo "$repo_url" | cut -d/ -f5)
+		user=$(echo "$repo_url" | awk -F/ '{print $(NF-1)}' | cut -d: -f2)
+		repo=$(echo "$repo_url" | awk -F/ '{print $NF}')
 		sed -i "/$user\/$repo/d" $to_sync
 	fi
 }
@@ -103,7 +103,9 @@ for url in "${urls[@]}"; do
 
 		cd "$dir"
 		if [[ $url == $(git config --get remote.origin.url) ]]; then
+			echo "Updating $(echo "$url" | awk -F/ '{print $NF}' | cut -d. -f1)..."
 			git pull
+			echo
 			# Remove the found directory
 			unset "untracked[$counter]"
 			break
