@@ -13,18 +13,20 @@ base=~/tools
 list=list.txt
 to_sync=$base/$list
 cd ~
+urls=()
 
-urls=""
 # Get the list of Git repos in list.txt
 readarray -t urls < $to_sync
 
 # Get the list of directories in ~/tools/
 dirs=( $(find $base -maxdepth 1 -mindepth 1 -type d) )
+untracked=("${dirs[@]}")
 
 function dir_not_found {
-	url="$1"
+	repo_url="$1"
+
 	echo "The following repository was found in your list but not in the $base/ directory:"
-	echo -e "\t$url"
+	echo -e "\t$repo_url"
 
 	# Ask the user about cloning the repo (and repeat if input is invalid)
 	ans=''
@@ -37,7 +39,7 @@ function dir_not_found {
 	# Clone the repo if the user answers 'yes'
 	if [[ $ans == 'y' ]]; then
 		cd "$base"
-		git clone "$url"
+		git clone "$repo_url"
 		return
 	fi
 
@@ -51,18 +53,18 @@ function dir_not_found {
 
 	# If 'yes' then delete the line from the list of repos
 	if [[ $ans == 'y' ]]; then
-		user=$(echo "$url" | cut -d/ -f4)
-		repo=$(echo "$url" | cut -d/ -f5)
+		user=$(echo "$repo_url" | cut -d/ -f4)
+		repo=$(echo "$repo_url" | cut -d/ -f5)
 		sed -i "/$user\/$repo/d" $to_sync
 	fi
 }
 
 function repo_not_found {
-	url="$1"
-	dir="$2"
+	repo_url="$1"
+	local_dir="$2"
 
-	echo "The following repository was found in $dir/ but not your list:"
-	echo -e "\t$url"
+	echo "The following repository was found in $local_dir/ but not your list:"
+	echo -e "\t$repo_url"
 
 	# Ask the user about adding it to the list
 	ans=''
@@ -73,21 +75,21 @@ function repo_not_found {
 	done
 	
 	if [[ $ans == 'y' ]]; then
-		echo "$url" >> "$to_sync"
+		echo "$repo_url" >> "$to_sync"
 		return
 	fi
 	
 	# Ask the user if they'd like to remove that repo from the list
 	ans=''
 	while [[ $ans != 'y' ]] && [[ $ans != 'n' ]]; do
-		read -rp "Would you like to remove the repository ($dir)? (Y/n) " ans
+		read -rp "Would you like to remove the repository ($local_dir)? (Y/n) " ans
 		if [[ $ans == '' ]]; then ans="y"; fi
 		ans=$(echo "$ans" | tr '[:upper:]' '[:lower:]')
 	done
 
 	# If 'yes' then delete the directory
 	if [[ $ans == 'y' ]]; then
-		rm -rf "$dir"
+		rm -rf "$local_dir"
 	fi
 }
 
@@ -101,13 +103,12 @@ for url in "${urls[@]}"; do
 
 		cd "$dir"
 		if [[ $url == $(git config --get remote.origin.url) ]]; then
-			#git pull
+			git pull
 			# Remove the found directory
-			unset "dirs[$counter]"
-			break 1
-		else
-			counter=$((counter + 1))
+			unset "untracked[$counter]"
+			break
 		fi
+		counter=$((counter + 1))
 	done
 
 	if [[ $counter -ge $num_dirs ]]; then
@@ -117,7 +118,7 @@ for url in "${urls[@]}"; do
 done
 
 # Iterate through leftover dirs to see if any are repos not in the list
-for dir in "${dirs[@]}"; do
+for dir in "${untracked[@]}"; do
 	cd "$dir"
 	url=$(git config --get remote.origin.url)
 	if [[ $? == 0 ]]; then
